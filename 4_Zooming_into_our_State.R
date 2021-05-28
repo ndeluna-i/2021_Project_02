@@ -74,11 +74,7 @@ CAdeath_gathered_exper$date <- str_replace(CAdeath_gathered_exper$date, "0", "2"
 
 CAcondeath <- rbind(CAcon_gathered_exper, CAdeath_gathered_exper)
 
-View(CAcondeath)
-
-
-## Experimental graph
-
+## Graph for CA confirmed and deaths
 
 ggplot(data = CAcondeath) +
   geom_point(mapping = aes(x = date, y = number, color = Province_State))+
@@ -89,6 +85,51 @@ ggplot(data = CAcondeath) +
   ) + theme_bw() + 
   theme(panel.border = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.line = element_line(colour = "black")) +
   theme_minimal() +
-  scale_y_continuous(limits=c(0,3800000)) +
-  scale_x_discrete(breaks = c("2020-01-22", "2020-06-01", "2021-01-01", "2021-05-18")) +
+  scale_y_continuous(limits=c(0,3800000), labels = scales::comma) +
+  scale_x_discrete(breaks = c("2020-01-22", "2020-07-01", "2020-12-13", "2021-05-27")) +
+  geom_vline(xintercept = "2020-03-19", size = .25, linetype = "longdash") +
   theme(legend.title = element_blank())
+
+#### Process for three main cities
+
+lastday <- ncol(Calconfirmed)
+
+Top3_CA_pre <- arrange(Calconfirmed, -Calconfirmed[lastday])
+Top3_CA <- head(Top3_CA_pre, n = 3)
+Top3_CA_needed <- select(Top3_CA, -c(UID, iso2, iso3, code3, FIPS, Province_State, Country_Region, Lat, Long_, Combined_Key))
+Top3_CA_grouped <- Top3_CA_needed %>%
+  group_by(Admin2) %>%
+  summarize_each(funs(sum))
+colnames(Top3_CA_grouped)[1] = "City"
+
+CAcity_gathered <- gather(
+  Top3_CA_grouped,
+  key = date,
+  value = number,
+  -City
+)
+
+CAcity_gathered_1 <- str_replace_all(CAcity_gathered$date, "X", "")
+CAcity_gathered_2 <- gsub("\\.", "/", CAcity_gathered_1)
+CAcity_gathered$date <- CAcity_gathered_2
+CAcity_gathered_exper <- CAcity_gathered
+CAcity_gathered_exper$date <- as.Date(CAcity_gathered_exper$date, "%m/%d/%Y")
+CAcity_gathered_exper$date <- str_replace(CAcity_gathered_exper$date, "0", "2") 
+
+###  Graph for cities
+
+ggplot(data = CAcity_gathered_exper) +
+  geom_point(mapping = aes(x = date, y = number, color = City))+
+  labs(
+    title = "California's Top 3 Cities with confirmed COVID-19 cases",
+    y = "Confirmed Number",
+    x = "Date"
+  ) + theme_bw() + 
+  theme(panel.border = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.line = element_line(colour = "black")) +
+  theme_minimal() +
+  scale_y_continuous(limits=c(0,1300000), labels = scales::comma) +
+  scale_x_discrete(breaks = c("2020-01-22", "2020-07-01", "2020-12-13", "2021-05-27")) +
+  geom_vline(xintercept = "2020-03-19", size = .25, linetype = "longdash") +
+  theme(legend.title = element_blank())
+
+                   
