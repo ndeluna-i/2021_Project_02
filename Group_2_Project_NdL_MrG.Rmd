@@ -1,0 +1,327 @@
+---
+title: "Project 2"
+author: "Naycari de Luna and Marc Robert Grabiel"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+  
+---
+```{r setup, include = FALSE}
+
+#### Load necessary packages ####
+# * These packages are not necessary to complete the assignment and or only used 
+#   to provide an example. 
+packages <- c("knitr", "magrittr", "RCurl", "dplyr", "kableExtra", "ggplot2", "tidyr", "stringr", "readr", "tidyverse", "cowplot")
+
+install_me <- packages[!(packages %in% installed.packages()[, "Package"])]
+if (length(install_me)) install.packages(install_me)
+
+library(knitr)
+library(magrittr)
+library(RCurl)
+library(dplyr)
+library(kableExtra)
+library(ggplot2)
+library(tidyr)
+library(stringr)
+library(readr)
+library(tidyverse)
+library(cowplot)
+
+```
+
+# Background
+The Global Health Initiative has recently employed a new data science response team, CSIT-165, that uses data science to characterize pandemic diseases. CSIT-165 disseminates data driven analyses to global and local decision makers.
+
+# Data
+> [2019 Novel Coronavirus COVID-19 (2019-nCoV) Data Repository by John Hopkins CSSE](https://github.com/CSSEGISandData/COVID-19/tree/master/csse_covid_19_data/csse_covid_19_time_series)
+
+Data for 2019 Novel Coronavirus is operated by the John Hopkins University Center for Systems Science and Engineering (JHU CSSE).
+Data includes daily time series CSV summary tables, including confirmations, recoveries, and deaths. 
+Country/region are countries/regions hat conform to World Health Organization (WHO).
+Lat and Long refer to coordinates references for the user. 
+Date fields are stored in MM/DD/YYYY format.
+
+```{r echo=FALSE}
+
+confirmed <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv")
+recovered <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_recovered_global.csv")
+deaths <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv")
+
+
+USconfirmed_download <- getURL("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_US.csv")
+USconfirmed <- read.csv(text=USconfirmed_download, stringsAsFactors = FALSE)
+
+USdeath_download <- getURL("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_US.csv")
+USdeaths <- read.csv(text=USdeath_download, stringsAsFactors = FALSE)
+
+USconfirmed2 <- read.csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_US.csv")
+USdeaths2 <- read.csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_US.csv")
+
+USpop <- read.csv("https://raw.githubusercontent.com/ndeluna-i/2021_Project_02/main/Population_Data_Join.csv")
+
+```
+
+# Project Objectives
+
+## Objective 1 - Global Trajectory
+```{r ob1}
+
+
+confirmed_sum <- confirmed %>%
+  select(5:ncol(confirmed)) %>%
+  summarize_if(is.numeric,sum,na.rm = TRUE) %>%
+  gather(, key=date, value=confirmed)
+
+deaths_sum <- deaths %>%
+  select(5:ncol(deaths)) %>%
+  summarize_if(is.numeric,sum,na.rm = TRUE) %>%
+  gather(, key=date, value=deaths)
+  
+recovered_sum <- recovered %>%
+  select(5:ncol(recovered)) %>%
+  summarize_if(is.numeric,sum,na.rm = TRUE) %>%
+  gather(, key=date, value=recovered)
+
+global_trajectory <- left_join(confirmed_sum, deaths_sum, by="date")
+global_trajectory <- left_join(global_trajectory, recovered_sum, by="date")
+colnames(global_trajectory) <- c("Date", "Confirmed", "Deaths", "Recovered")
+global_trajectory <- gather(global_trajectory, key=Object, value=Total, -Date)
+global_trajectory$Date <- as.Date(global_trajectory$Date, "%m/%d/%y")
+
+ggplot(global_trajectory) +
+  geom_point(aes(x=Date, y=Total, color=Object), size = 0.25)+
+  labs(title = "Global Trajectory of COVID-19",
+    y = "Cases",
+    x = "Date") +
+  scale_y_continuous(labels =c("0","50,000,000","100,000,000","150,000,000", "200,000,000")) +
+  theme(axis.line =element_line(colour = "black"),
+        legend.title =element_blank())
+
+```
+
+On May 27th, 2021, there have been 168,966,369 confirmed cases of COVID-19, 106,076,597 recorded recovered cases, and 3,511,204 recorded deaths related to COVID-19.  The numbers globally for all three metrics show a steady increase.  There is one recorded decrease in recovered cases and that is due to a cease of recording of recovered that occurred on December 14th, 2020.  The United States stopped reporting and their value of 6,298,082 recovered went to 0.  This is causes the recovered to appear like there was a dramatic drop down
+
+## Objective 2 - Global Map
+```{r ob2}
+
+
+
+```
+
+Answer to Objective 2
+
+## Objective 3 - Narrowing Down Hot Spots
+```{r ob3}
+
+total_confirmed <- subset(confirmed, select = c(2, ncol(confirmed)))
+colnames(total_confirmed) <- c("Country", "CasesConfirmed")
+total_confirmed <- aggregate(x = total_confirmed$CasesConfirmed, by = list(total_confirmed$Country), FUN = sum)
+colnames(total_confirmed) <- c("Country", "Confirmations")
+total_confirmed <- arrange(total_confirmed, -Confirmations)
+
+total_recovered <- subset(recovered, select = c(2, ncol(recovered)))
+colnames(total_recovered) <- c("Country", "CasesRecovered")
+total_recovered <- aggregate(x = total_recovered$CasesRecovered, by = list(total_recovered$Country), FUN = sum)
+colnames(total_recovered) <- c("Country", "Recoveries")
+total_recovered <- arrange(total_recovered, -Recoveries)
+
+
+total_deaths <- subset(deaths, select = c(2, ncol(deaths)))
+colnames(total_deaths) <- c("Country", "CasesDeaths")
+total_deaths <- aggregate(x = total_deaths$CasesDeaths, by = list(total_deaths$Country), FUN = sum)
+colnames(total_deaths) <- c("Country", "Deaths")
+total_deaths <- arrange(total_deaths, -Deaths)
+
+Rank <- as.data.frame(1:193)
+colnames(Rank)[1] <- "Rank"
+
+t0 <- head((Rank)[1], n = 167)
+t1 <- head((total_confirmed)[1:2], n = 167)
+t2 <- head((total_recovered)[1:2], n = 167)
+t3 <- head((total_deaths)[1:2], n = 167)
+
+kable(list(t0, t1, t2, t3)) %>%
+  kable_styling(fixed_thead = T) %>%
+  kable_paper() %>%
+  scroll_box(width = "800px", height = "300px")
+
+```
+
+The top countries with the most confirmed COVID-19 cases are the United States, India, Brazil, France, and Turkey.  The top countries with the most registered recoveries are India, Brazil, Turkey, Russia and Italy.  The countries with the most COVID-19 related deaths are the United States, Brazil, India, Mexico, and the United Kingdom.
+
+## Objective 4 - Zooming Into Our State
+
+```{r ob4}
+
+
+Calconfirmed <- filter(USconfirmed, Province_State == "California")
+Caldeaths <- filter(USdeaths, Province_State == "California")
+
+Calcon_needed <- select(Calconfirmed, -c(UID, iso2, iso3, code3, FIPS, Admin2, Country_Region, Lat, Long_, Combined_Key))
+
+Calcon_grouped <- Calcon_needed %>%
+  group_by(Province_State) %>%
+  summarize_each(funs(sum))
+Calcon_grouped[1] <- "CA_confirmed"  
+
+Caldeath_needed <- select(Caldeaths, -c(UID, iso2, iso3, code3, FIPS, Admin2, Country_Region, Lat, Long_, Combined_Key, Population))
+
+Caldeath_grouped <- Caldeath_needed %>%
+  group_by(Province_State) %>%
+  summarize_each(funs(sum))
+Caldeath_grouped[1] <- "CA_deaths"
+
+CAcon_gathered <- gather(
+  Calcon_grouped,
+  key = date,
+  value = number,
+  -Province_State
+)
+
+CAdeath_gathered <- gather(
+  Caldeath_grouped,
+  key = date,
+  value = number,
+  -Province_State
+)
+
+CAcon_gathered_1 <- str_replace_all(CAcon_gathered$date, "X", "")
+CAcon_gathered_2 <- gsub("\\.", "/", CAcon_gathered_1)
+CAcon_gathered$date <- CAcon_gathered_2
+CAcon_gathered_exper <- CAcon_gathered
+CAcon_gathered_exper$date <- as.Date(CAcon_gathered_exper$date, "%m/%d/%Y")
+CAcon_gathered_exper$date <- str_replace(CAcon_gathered_exper$date, "0", "2") 
+
+CAdeath_gathered_1 <- str_replace_all(CAdeath_gathered$date, "X", "")
+CAdeath_gathered_2 <- gsub("\\.", "/", CAdeath_gathered_1)
+CAdeath_gathered$date <- CAdeath_gathered_2
+CAdeath_gathered_exper <- CAdeath_gathered
+CAdeath_gathered_exper$date <- as.Date(CAdeath_gathered_exper$date, "%m/%d/%Y")
+CAdeath_gathered_exper$date <- str_replace(CAdeath_gathered_exper$date, "0", "2") 
+
+CAcondeath <- rbind(CAcon_gathered_exper, CAdeath_gathered_exper)
+
+
+lastday <- ncol(Calconfirmed)
+
+Top3_CA_pre <- arrange(Calconfirmed, -Calconfirmed[lastday])
+Top3_CA <- head(Top3_CA_pre, n = 3)
+Top3_CA_needed <- select(Top3_CA, -c(UID, iso2, iso3, code3, FIPS, Province_State, Country_Region, Lat, Long_, Combined_Key))
+Top3_CA_grouped <- Top3_CA_needed %>%
+  group_by(Admin2) %>%
+  summarize_each(funs(sum))
+colnames(Top3_CA_grouped)[1] = "City"
+
+CAcity_gathered <- gather(
+  Top3_CA_grouped,
+  key = date,
+  value = number,
+  -City
+)
+
+CAcity_gathered_1 <- str_replace_all(CAcity_gathered$date, "X", "")
+CAcity_gathered_2 <- gsub("\\.", "/", CAcity_gathered_1)
+CAcity_gathered$date <- CAcity_gathered_2
+CAcity_gathered_exper <- CAcity_gathered
+CAcity_gathered_exper$date <- as.Date(CAcity_gathered_exper$date, "%m/%d/%Y")
+CAcity_gathered_exper$date <- str_replace(CAcity_gathered_exper$date, "0", "2") 
+
+
+obj4_p1 <- ggplot(data = CAcondeath) +
+  geom_point(mapping = aes(x = date, y = number, color = Province_State))+
+  labs(
+    title = "California's Trajectory for COVID-19",
+    y = "Confirmed Number",
+    x = "Date"
+  ) + theme_bw() + 
+  theme(panel.border = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.line = element_line(colour = "black")) +
+  theme_minimal() +
+  scale_y_continuous(limits=c(0,3800000), labels = scales::comma) +
+  scale_x_discrete(breaks = c("2020-01-22", "2020-07-01", "2020-12-13", "2021-05-27")) +
+  geom_vline(xintercept = "2020-03-19", size = .25, linetype = "longdash") +
+  theme(legend.title = element_blank())
+
+obj4_p2 <- ggplot(data = CAcity_gathered_exper) +
+  geom_point(mapping = aes(x = date, y = number, color = City))+
+  labs(
+    title = "California's Top 3 Cities with confirmed COVID-19 cases",
+    y = "Confirmed Number",
+    x = "Date"
+  ) + theme_bw() + 
+  theme(panel.border = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.line = element_line(colour = "black")) +
+  theme_minimal() +
+  scale_y_continuous(limits=c(0,1300000), labels = scales::comma) +
+  scale_x_discrete(breaks = c("2020-01-22", "2020-07-01", "2020-12-13", "2021-05-27")) +
+  geom_vline(xintercept = "2020-03-19", size = .25, linetype = "longdash") +
+  theme(legend.title = element_blank())
+
+plot_grid(obj4_p1, obj4_p2, NULL, NULL, labels = c('A', 'B', '', ''), ncol = 1, nrow = 4, rel_heights = c(2, 2, .1, .1))
+
+```
+
+As of Thursday, May 27th, California shows 3,786,459 confirmed COVID-19 cases and has 63,168 reported deaths associated with COVID-19.  Graph A shows how the number of cases for COVID-19 began to increase steadily in May, 2020.  The number of cases began to increase sharply by the end of 2020 until it about the end of February, 2021.  The number of newly reported cases, in Graph A, gives the impression that confirmed cases has plateaued.  Due to the volume of confirmed cases we cannot discern what trends there are for the number of deaths.  For future analysis it is recommended that number of confirmed cases and number of COVID-19 related deaths be graphed separately.
+
+When USPRT hones in to the number of confirmed cases in California's top three regions the same pattern is observed (Graph B).  Each area shows the same timing of increase as California as a whole.  The three city regions are: Los Angeles (1,243,338 confirmed cases), Riverside (300,631 cases), and San Bernandino (298,082 cases).  These three areas represent 1,842,051 total confirmed cases, or over 48% of California's total confirmed cases.  All of these areas share borders with each other in the Greater Los Angeles area.
+
+
+## Objective 5 - Digging Deeper
+```{r ob5}
+
+Confirmed_needed <- select(USconfirmed2, c(Combined_Key, ncol(USconfirmed)))
+
+Pop_confirmed <- left_join(Confirmed_needed, USpop, by = c("Combined_Key" = "Geographic.Area"))
+Pop_confirmed <- Pop_confirmed %>% drop_na()
+colnames(Pop_confirmed) = c("City", "Confirmed", "Population")
+
+obj5_p1 <- ggplot(data = Pop_confirmed) +
+  geom_point(mapping = aes(x = Population, y = Confirmed), color = "dark blue") +
+  labs(
+    title = "Population vs. Confirmed",
+    y = "Confirmed Number",
+    x = "Population (2019)"
+  ) + theme_bw() + 
+  theme(panel.border = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.line = element_line(colour = "black")) +
+  theme_minimal() +
+  scale_y_continuous(trans = "log2", limits=c(1,3000000), labels = scales::comma) +
+  scale_x_continuous(trans = "log2", limits=c(17,10000000), labels = scales::comma) +
+  theme(legend.title = element_blank())
+
+
+Deaths_needed <- select(USdeaths2, c(Combined_Key, ncol(USdeaths)))
+Con_death_comp <- left_join(Confirmed_needed, Deaths_needed, by = "Combined_Key")
+Con_death_comp <- Con_death_comp %>% drop_na()
+colnames(Con_death_comp) = c("City", "Confirmed", "Deaths")
+Con_death_comp <- filter(Con_death_comp, Confirmed > 0)
+
+
+obj5_p2 <- ggplot(data = Con_death_comp) +
+  geom_point(mapping = aes(x = Confirmed, y = Deaths), color = "dark red") +
+  labs(
+    title = "Confirmed Cases to Reported Number of Deaths",
+    y = "Number of Deaths",
+    x = "Number of Confirmed Cases"
+  ) + theme_bw() + 
+  theme(panel.border = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.line = element_line(colour = "black")) +
+  theme_minimal() +
+  scale_y_continuous(trans = "log2", limits=c(1,200000), labels = scales::comma) +
+  scale_x_continuous(trans = "log2", limits=c(1,4000000), labels = scales::comma) +
+  theme(legend.title = element_blank())
+
+plot_grid(obj5_p1, obj5_p2, labels = c('A', 'B'), ncol = 1)
+
+```
+
+Population data was obtained from the US. Census Bureau (modified dataset from https://www.census.gov/data/datasets/time-series/demo/popest/2010s-counties-total.html).  Data was combined and compared at the county level.  When we graph the data using a log transformation we see population strongly correlates to number of confirmed cases.  There are some regions that show 0 confirmed cases but they do not occur in any area with a population greater than 250,000.  However, the number of confirmed cases to deaths has much more variation.  There is not such a strong trend and at lower case counts the trend with deaths varied more.  However, as the case load increased the variation around number of deaths decreased.
+
+## GitHub Log
+```{bash gitlog} 
+git log --pretty=format:"%nSubject: %s%nAuthor: %aN%nDate: %aD%nBody: %b"
+```
+
+
+
+
+
