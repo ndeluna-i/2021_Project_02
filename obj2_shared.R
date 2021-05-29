@@ -46,25 +46,25 @@ leaflet(data = all_recent) %>%
   addCircleMarkers(
     lat = ~Lat,
     lng = ~Long,
-    color = "silver",
-    radius = ~log10(Confirmed),
-    label = ~htmlEscape(Country),
+    color = "gray",
+    radius = ~Confirmed/1000000,
+    label = ifelse((!is.na(all_recent$Province)), all_recent$Province, all_recent$Country),
     popup = paste("Confirmed:", as.character(all_recent$Confirmed), sep = " "),
     group = "Confirmed") %>%
   addCircleMarkers(
     lat = ~Lat,
     lng = ~Long,
     color = "cyan",
-    radius = ~log10(Recovered),
-    label = ~htmlEscape(Country),
+    radius = ~Recovered/1000000,
+    label = ifelse((!is.na(all_recent$Province)), all_recent$Province, all_recent$Country),
     popup = paste("Confirmed:", as.character(all_recent$Recovered), sep = " "),
     group = "Recovered") %>%
   addCircleMarkers(
     lat = ~Lat,
     lng = ~Long,
     color = "red",
-    radius = ~log10(Deaths),
-    label = ~htmlEscape(Country),
+    radius = ~Deaths/100000,
+    label = ifelse((!is.na(all_recent$Province)), all_recent$Province, all_recent$Country),
     popup = paste("Confirmed:", as.character(all_recent$Deaths), sep = " "),
     group = "Deaths") %>%
   addLayersControl(
