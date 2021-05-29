@@ -48,9 +48,10 @@ ggplot(global_trajectory) +
   geom_point(aes(x=Date, y=Total, color=Object), size = 0.25)+
   labs(title = "Global Trajectory of COVID-19",
     y = "Cases",
-    x = "Date") +
-  scale_y_continuous(labels =c("0","50000000","100000000","150000000", "200000000")) +
-  theme(axis.line =element_line(colour = "black"),
-        legend.title =element_blank())
+    x = "Date",
+    color = "Global Data Set") +
+  scale_y_continuous(limits = c(0,200000000), labels = scales::comma) +
+  scale_x_date(date_labels = "%B'%y")
 
+#UPDATE 05/28/2021: I think this is good now. 
   
