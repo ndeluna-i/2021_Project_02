@@ -13,7 +13,7 @@ output:
 #### Load necessary packages ####
 # * These packages are not necessary to complete the assignment and or only used 
 #   to provide an example. 
-packages <- c("knitr", "magrittr", "RCurl", "dplyr", "kableExtra", "ggplot2", "tidyr", "stringr", "readr", "tidyverse", "cowplot")
+packages <- c("knitr", "magrittr", "RCurl", "dplyr", "kableExtra", "ggplot2", "tidyr", "stringr", "readr", "tidyverse", "cowplot", "scales", "numform", "leaflet")
 
 install_me <- packages[!(packages %in% installed.packages()[, "Package"])]
 if (length(install_me)) install.packages(install_me)
@@ -29,6 +29,9 @@ library(stringr)
 library(readr)
 library(tidyverse)
 library(cowplot)
+library(scales)
+library(numform)
+library(leaflet)
 
 ```
 
@@ -107,11 +110,53 @@ On May 27th, 2021, there have been 168,966,369 confirmed cases of COVID-19, 106,
 ## Objective 2 - Global Map
 ```{r ob2}
 
+confirmed_recent <- confirmed %>%
+  select(1:4, ncol(confirmed))
 
+recovered_recent <- recovered %>%
+  select(1:4, ncol(recovered))
+
+deaths_recent <- deaths %>%
+  select(1:4, ncol(deaths))
+
+all_recent <- left_join(confirmed_recent, recovered_recent, by = c("Province/State", "Country/Region", "Lat", "Long"))
+all_recent <- left_join(all_recent, deaths_recent, by = c("Province/State", "Country/Region", "Lat", "Long"))
+colnames(all_recent) <- c("Province", "Country", "Lat", "Long", "Confirmed", "Recovered", "Deaths")
+
+leaflet(data = all_recent) %>%
+  addProviderTiles("CartoDB.Positron") %>%
+  setView(lng=0, lat=0, zoom = 1) %>%
+  addCircleMarkers(
+    lat = ~Lat,
+    lng = ~Long,
+    color = "gray",
+    radius = ~Confirmed/1000000,
+    label = ifelse((!is.na(all_recent$Province)), all_recent$Province, all_recent$Country),
+    popup = paste("Confirmed:", as.character(all_recent$Confirmed), sep = " "),
+    group = "Confirmed") %>%
+  addCircleMarkers(
+    lat = ~Lat,
+    lng = ~Long,
+    color = "cyan",
+    radius = ~Recovered/1000000,
+    label = ifelse((!is.na(all_recent$Province)), all_recent$Province, all_recent$Country),
+    popup = paste("Confirmed:", as.character(all_recent$Recovered), sep = " "),
+    group = "Recovered") %>%
+  addCircleMarkers(
+    lat = ~Lat,
+    lng = ~Long,
+    color = "red",
+    radius = ~Deaths/100000,
+    label = ifelse((!is.na(all_recent$Province)), all_recent$Province, all_recent$Country),
+    popup = paste("Confirmed:", as.character(all_recent$Deaths), sep = " "),
+    group = "Deaths") %>%
+  addLayersControl(
+    overlayGroups = c("Confirmed", "Recovered", "Deaths"),
+    options = layersControlOptions(collapsed = FALSE))
 
 ```
 
-Answer to Objective 2
+Using the global map we can see that certain countries have much larger cases observed.  Some countries with the largest recordings are the United States, Brazil, India, and Russia.  However, nearly no place in the world has not been impacted by this pandemic.
 
 ## Objective 3 - Narrowing Down Hot Spots
 ```{r ob3}
@@ -121,32 +166,38 @@ colnames(total_confirmed) <- c("Country", "CasesConfirmed")
 total_confirmed <- aggregate(x = total_confirmed$CasesConfirmed, by = list(total_confirmed$Country), FUN = sum)
 colnames(total_confirmed) <- c("Country", "Confirmations")
 total_confirmed <- arrange(total_confirmed, -Confirmations)
+date_data <- total_confirmed[2]
+total_confirmed[2] <- lapply(date_data, comma, accuracy = 1)
+
 
 total_recovered <- subset(recovered, select = c(2, ncol(recovered)))
 colnames(total_recovered) <- c("Country", "CasesRecovered")
 total_recovered <- aggregate(x = total_recovered$CasesRecovered, by = list(total_recovered$Country), FUN = sum)
 colnames(total_recovered) <- c("Country", "Recoveries")
 total_recovered <- arrange(total_recovered, -Recoveries)
-
+date_data <- total_recovered[2]
+total_recovered[2] <- lapply(date_data, comma, accuracy = 1)
 
 total_deaths <- subset(deaths, select = c(2, ncol(deaths)))
 colnames(total_deaths) <- c("Country", "CasesDeaths")
 total_deaths <- aggregate(x = total_deaths$CasesDeaths, by = list(total_deaths$Country), FUN = sum)
 colnames(total_deaths) <- c("Country", "Deaths")
 total_deaths <- arrange(total_deaths, -Deaths)
+date_data <- total_deaths[2]
+total_deaths[2] <- lapply(date_data, comma, accuracy = 1)
 
 Rank <- as.data.frame(1:193)
 colnames(Rank)[1] <- "Rank"
 
-t0 <- head((Rank)[1], n = 167)
-t1 <- head((total_confirmed)[1:2], n = 167)
-t2 <- head((total_recovered)[1:2], n = 167)
-t3 <- head((total_deaths)[1:2], n = 167)
+t0 <- head((Rank)[1], n = 193)
+t1 <- head((total_confirmed)[1:2], n = 193)
+t2 <- head((total_recovered)[1:2], n = 193)
+t3 <- head((total_deaths)[1:2], n = 193)
 
 kable(list(t0, t1, t2, t3)) %>%
   kable_styling(fixed_thead = T) %>%
   kable_paper() %>%
-  scroll_box(width = "800px", height = "300px")
+  scroll_box(width = "880px", height = "300px")
 
 ```
 

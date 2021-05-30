@@ -132,4 +132,77 @@ ggplot(data = CAcity_gathered_exper) +
   geom_vline(xintercept = "2020-03-19", size = .25, linetype = "longdash") +
   theme(legend.title = element_blank())
 
-                   
+#Naycari's attempt
+library(readr)
+
+deaths_US <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_US.csv")
+confirmed_US <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_US.csv")
+
+# california data frames 
+confirmed_ca <- confirmed_US %>%
+  select(-(1:5), -(8:11)) %>%
+  filter(Province_State == "California")
+
+confirmed_ca_sum <- confirmed_ca %>%
+  group_by(Province_State) %>%
+  summarize_if(is.numeric,sum,na.rm = TRUE) %>%
+  select(2:ncol(.)) %>%
+  gather(, key=date, value=confirmed)
+
+deaths_ca <- deaths_US %>%
+  select(-(1:5), -(8:12)) %>%
+  filter(Province_State == "California")
+
+deaths_ca_sum <- deaths_ca %>%
+  group_by(Province_State) %>%
+  summarize_if(is.numeric,sum,na.rm = TRUE) %>%
+  select(3:ncol(.)) %>%
+  gather(, key=date, value=deaths)
+
+ca_sum <- left_join(confirmed_ca_sum, deaths_ca_sum, by="date") %>%
+  gather(, key=Object, value=Total, -date)
+ca_sum$date <- as.Date(ca_sum$date, "%m/%d/%y")
+
+#california plot
+ggplot(ca_sum) +
+  geom_point(aes(x=date, y=Total, color=Object), size = 0.25)+
+  labs(title = "California's Trajectory for COVID-19",
+       y = "Cases",
+       x = "Date",
+       color = "California Total") +
+  geom_vline(xintercept = 2020-03-19) +
+  scale_y_continuous(limits = c(0,4000000), labels = scales::comma) +
+  scale_x_date(date_labels = "%B'%y") 
+
+#finding top 3 cities 
+confirmed_ca %>%
+  select(1, ncol(confirmed_ca)) %>%
+  'colnames<-'(c("City", "Total")) %>%
+  arrange(desc(Total)) %>%
+  slice(1:3)
+
+# Los Angeles, Riverside, and San Bernardino
+
+#top 3 cities data frame
+confirmed_ca_top3 <- confirmed_ca %>%
+  filter(Admin2 == "Los Angeles" | Admin2 == "Riverside" | Admin2 == "San Bernardino") %>%
+  select(-(Province_State)) %>%
+  rename(., City = 'Admin2') %>%
+  gather(, key=date, value=confirmed, -City)
+confirmed_ca_top3$date <- as.Date(confirmed_ca_top3$date, "%m/%d/%y")
+  
+#top 3 cities plot
+ggplot(confirmed_ca_top3) +
+  geom_point(aes(x=date, y=confirmed, color=City), size = 0.25) +
+  labs(title = "California's Trajectory for COVID-19",
+       y = "Cases",
+       x = "Date",
+       color = "Top Confirmed Cities") +
+  geom_vline(xintercept = 2020-03-19) +
+  scale_y_continuous(limits = c(0,2000000), labels = scales::comma) +
+  scale_x_date(date_labels = "%B'%y") 
+
+
+
+
+       
