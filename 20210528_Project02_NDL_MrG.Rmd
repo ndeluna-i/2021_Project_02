@@ -1,0 +1,314 @@
+---
+title: "20210528_Project02_NDL_MrG"
+author: "Name: Naycari De Luna \n Partner: Marc Grabiel"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: '3'
+  pdf_document:
+    toc: yes
+    toc_depth: 3
+header-includes:
+- \usepackage{booktabs}
+- \usepackage{longtable}
+- \usepackage{array}
+- \usepackage{multirow}
+- \usepackage{wrapfig}
+- \usepackage{float}
+- \usepackage{colortbl}
+- \usepackage{pdflscape}
+- \usepackage{tabu}
+- \usepackage{threeparttable}
+- \usepackage{threeparttablex}
+- \usepackage[normalem]{ulem}
+- \usepackage{makecell}
+- \usepackage{xcolor}
+---
+
+```{r setup, include=FALSE}
+### Load necessary packages for project ###
+packages <- c("knitr", "magrittr", "RCurl", "plyr", "dplyr", "kableExtra", "ggplot2", "tidyr", "stringr", "readr", "tidyverse", "cowplot", "scales", "numform", "leaflet")
+
+install_me <- packages[!(packages %in% installed.packages()[, "Package"])]
+if (length(install_me)) install.packages(install_me)
+
+library(knitr)
+library(magrittr)
+library(RCurl)
+library(plyr)
+library(dplyr)
+library(kableExtra)
+library(ggplot2)
+library(tidyr)
+library(stringr)
+library(readr)
+library(tidyverse)
+library(cowplot)
+library(scales)
+library(numform)
+library(leaflet)
+```
+
+## Background
+The Global Health Initiative has recently employed a new data science response team, *CSIT-165*, that uses data science to characterize pandemic diseases. *CSIT-165* disseminates data driven analyses to global and local decision makers.
+
+CSIT-165 is a conglomerate comprised of two fabricated entities: *World Health Organization (WHO)* and *U.S. Pandemic Response Team (USPRT)*. 
+You and your partner’s role is to play a data scientist from one of these two entities. 
+
+## Data
+[2019 Novel Coronavirus COVID-19 (2019-nCoV) Data Repository by John Hopkins CSSE](https://github.com/CSSEGISandData/COVID-19/tree/master/csse_covid_19_data/csse_covid_19_time_series)
+Data for 2019 Novel Coronavirus is operated by the John Hopkins University Center for Systems Science and Engineering (JHU CSSE).
+Data includes daily time series CSV summary tables, including confirmations, recoveries, and deaths. 
+Country/region are countries/regions hat conform to World Health Organization (WHO).
+Lat and Long refer to coordinates references for the user. 
+Date fields are stored in MM/DD/YYYY format.
+
+```{r data}
+#Global data sets downloaded on 05/28/2021
+confirmed <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv")
+recovered <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_recovered_global.csv")
+deaths <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv")
+
+#US data sets downloaded on 05/28/2021
+deaths_US <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_US.csv")
+confirmed_US <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_US.csv")
+
+
+```
+
+## Project Objectives
+
+### Objective 1 - Global Trajectory
+```{r ob1}
+confirmed_sum <- confirmed %>%
+  select(5:ncol(confirmed)) %>%
+  summarize_if(is.numeric,sum,na.rm = TRUE) %>%
+  gather(, key=date, value=confirmed)
+
+deaths_sum <- deaths %>%
+  select(5:ncol(deaths)) %>%
+  summarize_if(is.numeric,sum,na.rm = TRUE) %>%
+  gather(, key=date, value=confirmed)
+  
+recovered_sum <- recovered %>%
+  select(5:ncol(recovered)) %>%
+  summarize_if(is.numeric,sum,na.rm = TRUE) %>%
+  gather(, key=date, value=confirmed)
+
+global_trajectory <- left_join(confirmed_sum, deaths_sum, by="date")
+global_trajectory <- left_join(global_trajectory, recovered_sum, by="date")
+colnames(global_trajectory) <- c("Date", "Confirmed", "Deaths", "Recovered")
+global_trajectory <- gather(global_trajectory, key=Object, value=Total, -Date)
+global_trajectory$Date <- as.Date(global_trajectory$Date, "%m/%d/%y")
+
+ggplot(global_trajectory) +
+  geom_point(aes(x=Date, y=Total, color=Object), size = 0.25)+
+  labs(title = "Global Trajectory of COVID-19",
+    y = "Cases",
+    x = "Date",
+    color = "Global Data Set") +
+  scale_y_continuous(limits = c(0,200000000), labels = scales::comma) +
+  scale_x_date(date_labels = "%B'%y")
+```
+We are at a global count of 169785879 confirmed cases, 106864360 recoveries, and 3530159 deaths as of 05/28/2021. Some countried like the USA have stopped reporting daily recoveries, which explains the jump from 47328396 on 12/13/2020 to 41338399 on 12/14/2020.
+
+### Objective 2 - Global Map
+```{r ob2}
+confirmed_recent <- confirmed %>%
+  select(1:4, ncol(confirmed))
+
+recovered_recent <- recovered %>%
+  select(1:4, ncol(recovered))
+
+deaths_recent <- deaths %>%
+  select(1:4, ncol(deaths))
+
+all_recent <- left_join(confirmed_recent, recovered_recent, by = c("Province/State", "Country/Region", "Lat", "Long"))
+all_recent <- left_join(all_recent, deaths_recent, by = c("Province/State", "Country/Region", "Lat", "Long"))
+colnames(all_recent) <- c("Province", "Country", "Lat", "Long", "Confirmed", "Recovered", "Deaths")
+
+leaflet(data = all_recent) %>%
+  addProviderTiles("CartoDB.Positron") %>%
+  setView(lng=0, lat=0, zoom = 1) %>%
+  addCircleMarkers(
+    lat = ~Lat,
+    lng = ~Long,
+    color = "gray",
+    radius = ~Confirmed/1000000,
+    label = ifelse((!is.na(all_recent$Province)), all_recent$Province, all_recent$Country),
+    popup = paste("Confirmed:", as.character(all_recent$Confirmed), sep = " "),
+    group = "Confirmed") %>%
+  addCircleMarkers(
+    lat = ~Lat,
+    lng = ~Long,
+    color = "cyan",
+    radius = ~Recovered/1000000,
+    label = ifelse((!is.na(all_recent$Province)), all_recent$Province, all_recent$Country),
+    popup = paste("Confirmed:", as.character(all_recent$Recovered), sep = " "),
+    group = "Recovered") %>%
+  addCircleMarkers(
+    lat = ~Lat,
+    lng = ~Long,
+    color = "red",
+    radius = ~Deaths/100000,
+    label = ifelse((!is.na(all_recent$Province)), all_recent$Province, all_recent$Country),
+    popup = paste("Confirmed:", as.character(all_recent$Deaths), sep = " "),
+    group = "Deaths") %>%
+  addLayersControl(
+    overlayGroups = c("Confirmed", "Recovered", "Deaths"),
+    options = layersControlOptions(collapsed = FALSE))
+
+
+```
+The USA, India and Brazil have the highest number of confirmed cases since 01/22/2020. The three countries might also have the higher number of recoveries, but the USA has not reported recoveries since Dec 2020. Brazil and India are seen as having the highest number of recoveries on the map. The map also indicates the USA and Brazil have had the highest number of reported deaths. 
+
+
+### Objective 3 - Narrowing Down Hot Spots
+```{r ob3}
+confirmed_sum_3 <- confirmed %>%
+  select(2, ncol(confirmed)) %>%
+  `colnames<-`(c("Country", "Counts")) %>%
+  group_by(Country) %>%
+  summarize_if(is.numeric,sum,na.rm = TRUE) %>%
+  arrange(desc(Counts)) %>%
+  mutate(Rank = 1:193) %>%
+  subset(select= c(3, 1, 2))
+
+recovered_sum_3 <- recovered %>%
+  select(2, ncol(recovered)) %>%
+  `colnames<-`(c("Country", "Counts")) %>%
+  group_by(Country) %>%
+  summarize_if(is.numeric,sum,na.rm = TRUE) %>%
+  arrange(desc(Counts)) %>%
+  mutate(Rank = 1:193) %>%
+  subset(select= c(3, 1, 2))
+
+deaths_sum_3 <- deaths %>%
+  select(2, ncol(deaths)) %>%
+  `colnames<-`(c("Country", "Counts")) %>%
+  group_by(Country) %>%
+  summarize_if(is.numeric,sum,na.rm = TRUE) %>%
+  arrange(desc(Counts)) %>%
+  mutate(Rank = 1:193) %>%
+  subset(select= c(3, 1, 2))
+
+combine <- full_join(confirmed_sum_3, recovered_sum_3, by = "Rank") %>%
+  full_join(., deaths_sum_3, by = "Rank")
+
+kable(combine, "html",
+      col.names = c("Rank", "Country", "Count", "Country", "Count", "Country", "Count"),
+      align = "clrlrlr") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left",font_size = 12) %>%
+  column_spec(1, bold = T) %>%
+  add_header_above(c(" " = 1, "Confirmations" = 2, "Recoveries" = 2, "Deaths" = 2)) %>%
+  scroll_box(width = "100%", height = "500px")
+
+```
+Not surprising to see the USA, India and Brazil amongst the top 3 countries for confirmed cases and deaths. The lack of reported recoveries from the USA has resulted in Turkey ranking amongst the top 3 for recoveries. It is interesting to see the trend of large countries like Russia, Mexico and the UK at the top 10 for reported deaths. 
+
+### Objective 4 - Zooming Into Our State
+```{r ob4}
+confirmed_ca <- confirmed_US %>%
+  select(-(1:5), -(8:11)) %>%
+  filter(Province_State == "California")
+
+confirmed_ca_sum <- confirmed_ca %>%
+  group_by(Province_State) %>%
+  summarize_if(is.numeric,sum,na.rm = TRUE) %>%
+  select(2:ncol(.)) %>%
+  gather(, key=date, value=confirmed)
+
+deaths_ca <- deaths_US %>%
+  select(-(1:5), -(8:12)) %>%
+  filter(Province_State == "California")
+
+deaths_ca_sum <- deaths_ca %>%
+  group_by(Province_State) %>%
+  summarize_if(is.numeric,sum,na.rm = TRUE) %>%
+  select(3:ncol(.)) %>%
+  gather(, key=date, value=deaths)
+
+ca_sum <- left_join(confirmed_ca_sum, deaths_ca_sum, by="date") %>%
+  gather(, key=Object, value=Total, -date)
+ca_sum$date <- as.Date(ca_sum$date, "%m/%d/%y")
+
+
+ggplot(ca_sum) +
+  geom_point(aes(x=date, y=Total, color=Object), size = 0.25)+
+  labs(title = "California's Trajectory for COVID-19",
+       y = "Cases",
+       x = "Date",
+       color = "California Total") +
+  geom_vline(xintercept = 2020-03-19) +
+  scale_y_continuous(limits = c(0,4000000), labels = scales::comma) +
+  scale_x_date(date_labels = "%B'%y") 
+
+
+confirmed_ca %>%
+  select(1, ncol(confirmed_ca)) %>%
+  'colnames<-'(c("City", "Total")) %>%
+  arrange(desc(Total)) %>%
+  slice(1:3)
+
+
+confirmed_ca_top3 <- confirmed_ca %>%
+  filter(Admin2 == "Los Angeles" | Admin2 == "Riverside" | Admin2 == "San Bernardino") %>%
+  select(-(Province_State)) %>%
+  rename(., City = 'Admin2') %>%
+  gather(, key=date, value=confirmed, -City)
+confirmed_ca_top3$date <- as.Date(confirmed_ca_top3$date, "%m/%d/%y")
+  
+
+ggplot(confirmed_ca_top3) +
+  geom_point(aes(x=date, y=confirmed, color=City), size = 0.25) +
+  labs(title = "California's Trajectory for COVID-19",
+       y = "Cases",
+       x = "Date",
+       color = "Top Confirmed Cities") +
+  geom_vline(xintercept = 2020-03-19) +
+  scale_y_continuous(limits = c(0,1500000), labels = scales::comma) +
+  scale_x_date(date_labels = "%B'%y") 
+```
+California has reached past 3.5million confirmed cases of COVID-19 since January 2020. Number of deaths has remained well below 100,000.
+
+### Objective 5 - Digging Deeper
+```{r ob5}
+Population <- deaths_US$Population
+City <- deaths_US$Admin2
+Confirmation <- confirmed_US$'5/28/21'
+State <- confirmed_US$Province_State
+Deaths <- deaths_US$'5/28/21'
+
+data <- data.frame(City, State, Population, Confirmation, Deaths)
+  
+
+g1 <- ggplot(data = data) +
+  geom_point(mapping = aes(x = Population, y = Confirmation), color = "red") +
+  labs(
+    title = "Population vs. Confirmed",
+    y = "Confirmed Number",
+    x = "Population"
+  ) +
+  scale_y_log10(limits=c(1,200000), labels = scales::comma) +
+  scale_x_log10(limits=c(1,11000000), labels = scales::comma) 
+
+g2 <- ggplot(data = data) +
+  geom_point(mapping = aes(x = Confirmation, y = Deaths), color = "dark blue") +
+  labs(
+    title = "Confirmed Cases to Reported Number of Deaths",
+    y = "Number of Deaths",
+    x = "Number of Confirmed Cases"
+  ) +
+  scale_y_log10(labels = scales::comma) +
+  scale_x_log10(labels = scales::comma)
+
+
+plot_grid(g1, g2) 
+```
+
+## GitHub Log
+```{bash gitlog} 
+git log --pretty=format:"%nSubject: %s%nAuthor: %aN%nDate: %aD%nBody: %b"
+```
