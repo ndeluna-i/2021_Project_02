@@ -67,3 +67,51 @@ obj5_p2 <- ggplot(data = Con_death_comp) +
   theme(legend.title = element_blank())
 
 plot_grid(obj5_p1, obj5_p2, labels = c('A', 'B'))
+
+
+
+#NDL attempt
+library(readr)
+
+deaths_US <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_US.csv")
+confirmed_US <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_US.csv")
+
+# note population data is in deaths_US data frame as Population, column 12
+
+# make a pop vs confirmed counts data frame, start with variables 
+
+Population <- deaths_US$Population
+City <- deaths_US$Admin2
+Confirmation <- confirmed_US$'5/28/21'
+State <- confirmed_US$Province_State
+Deaths <- deaths_US$'5/28/21'
+
+data <- data.frame(City, State, Population, Confirmation, Deaths)
+
+data %>%
+  
+
+# make plot
+g1 <- ggplot(data = data) +
+  geom_point(mapping = aes(x = Population, y = Confirmation), color = "red") +
+  labs(
+    title = "Population vs. Confirmed",
+    y = "Confirmed Number",
+    x = "Population"
+  ) +
+  scale_y_log10(limits=c(1,200000), labels = scales::comma) +
+  scale_x_log10(limits=c(1,11000000), labels = scales::comma)
+
+g2 <- ggplot(data = data) +
+  geom_point(mapping = aes(x = Confirmed, y = Deaths), color = "dark blue") +
+  labs(
+    title = "Confirmed Cases to Reported Number of Deaths",
+    y = "Number of Deaths",
+    x = "Number of Confirmed Cases"
+  ) +
+  scale_y_log10(labels = scales::comma) +
+  scale_x_log10(labels = scales::comma)
+
+#side by side
+plot_grid(g1, g2)
+
